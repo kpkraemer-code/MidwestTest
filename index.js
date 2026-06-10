@@ -6,8 +6,8 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 // Replace with your own secret
-const VERIFICATION_TOKEN = "your_very_long_verification_token_here_32_to_80_chars";
-const ENDPOINT = "https://your-domain.com/webhook/ebay";   // Must match exactly what you send in createDestination
+const VERIFICATION_TOKEN = "MiDwEsT_dIeSeL_Kyle_kRaEmEr_ThisIsWild";
+const ENDPOINT = "https://midwesttest-production.up.railway.app/webhook/ebay";   // Must match exactly what you send in createDestination
 
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
