@@ -1,12 +1,9 @@
 {
-  "name": "ebay-webhook",
-  "version": "1.0.0",
-  "main": "index.js",
-  "scripts": {
-    "start": "node index.js"
-  },
   "dependencies": {
     "express": "^4.19.2",
-    "body-parser": "^1.20.2"
+    "crypto": "^1.0.1",           // usually built-in
+    "body-parser": "^1.20.2",
+    "nodemailer": "^6.9.14",
+    "dotenv": "^16.4.5"
   }
 }
