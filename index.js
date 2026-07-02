@@ -1,21 +1,31 @@
 const express = require('express');
 const crypto = require('crypto');
-const bodyParser = require('body-parser');
+const nodemailer = require('nodemailer');
+require('dotenv').config(); // Add this
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Replace with your own secret
+// ====================== CONFIG ======================
 const VERIFICATION_TOKEN = "MiDwEsT_dIeSeL_Kyle_kRaEmEr_ThisIsWild";
-const ENDPOINT = "https://midwesttest-production.up.railway.app/webhook/ebay";   // Must match exactly what you send in createDestination
+const ENDPOINT = "https://midwesttest-production.up.railway.app/webhook/ebay";
 
-app.use(bodyParser.json());
-app.use(bodyParser.urlencoded({ extended: true }));
+const EMAIL_TO = "kpkraemer@gmail.com";
 
-// ======================
-// EBAY WEBHOOK ENDPOINT
-// ======================
-app.get('/webhook/ebay', (req, res) => {          // ← Challenge (GET request)
+// Nodemailer Setup (Gmail)
+const transporter = nodemailer.createTransport({
+  service: 'gmail',
+  auth: {
+    user: process.env.EMAIL_USER,           // your Gmail
+    pass: process.env.EMAIL_APP_PASSWORD    // Gmail App Password
+  }
+});
+
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+
+// ====================== CHALLENGE (GET) ======================
+app.get('/webhook/ebay', (req, res) => {
     const challengeCode = req.query.challenge_code;
 
     if (!challengeCode) {
@@ -30,6 +40,7 @@ app.get('/webhook/ebay', (req, res) => {          // ← Challenge (GET request)
 
         const challengeResponse = hash.digest('hex');
 
+        console.log('✅ Challenge responded successfully');
         res.setHeader('Content-Type', 'application/json');
         return res.status(200).json({ challengeResponse });
     } catch (err) {
@@ -38,18 +49,62 @@ app.get('/webhook/ebay', (req, res) => {          // ← Challenge (GET request)
     }
 });
 
-app.post('/webhook/ebay', (req, res) => {         // ← Actual notifications (POST)
+// ====================== NOTIFICATION (POST) ======================
+app.post('/webhook/ebay', async (req, res) => {
     console.log('=== eBay Notification Received ===');
     console.log('Headers:', req.headers);
     console.log('Body:', JSON.stringify(req.body, null, 2));
 
-    // TODO: Add signature verification here (highly recommended)
-    // Use eBay's official Node.js SDK for easier validation
+    const notification = req.body;
 
-    // Always return 200 OK quickly
+    // Check if it's an Order Confirmation
+    if (notification.metadata?.topic === 'ORDER_CONFIRMATION' || 
+        notification.notification?.data?.order) {
+
+        const order = notification.notification?.data?.order || notification.order;
+        const user = notification.notification?.data?.user;
+
+        console.log(`✅ ORDER_CONFIRMATION detected! Order ID: ${order?.orderId}`);
+
+        // Send Email
+        const mailOptions = {
+            from: `"eBay Orders" <${process.env.EMAIL_USER}>`,
+            to: EMAIL_TO,
+            subject: `🛒 New eBay Order #${order?.orderId || 'Unknown'}`,
+            html: `
+                <h2>New Order Received on eBay</h2>
+                <p><strong>Order ID:</strong> ${order?.orderId || 'N/A'}</p>
+                <p><strong>Seller:</strong> ${user?.username || user?.userId || 'N/A'}</p>
+                <p><strong>Time:</strong> ${notification.notification?.eventDate || new Date().toISOString()}</p>
+                
+                <h3>Items:</h3>
+                <ul>
+                    ${(order?.orderLineItems || []).map(item => `
+                        <li>
+                            <strong>Listing ID:</strong> ${item.listingId}<br>
+                            <strong>Line Item:</strong> ${item.orderLineItemId}<br>
+                            <strong>Quantity:</strong> ${item.quantity}
+                        </li>
+                    `).join('') || '<li>No items found</li>'}
+                </ul>
+                <hr>
+                <p><small>This email was sent automatically from your eBay webhook.</small></p>
+            `
+        };
+
+        try {
+            await transporter.sendMail(mailOptions);
+            console.log(`📧 Email sent to ${EMAIL_TO}`);
+        } catch (emailErr) {
+            console.error('❌ Failed to send email:', emailErr);
+        }
+    }
+
+    // Always respond quickly
     res.status(200).send('OK');
 });
 
 app.listen(PORT, () => {
     console.log(`eBay webhook listening on port ${PORT}`);
+    console.log(`Emails will be sent to: ${EMAIL_TO}`);
 });
